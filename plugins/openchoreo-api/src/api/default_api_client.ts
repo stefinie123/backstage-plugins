@@ -37,6 +37,18 @@ import {
   RuntimeLogsObserverUrlGetRequest,
   BuildObserverUrlGetRequest,
   ObserverUrlData,
+  ComponentTypeListResponse,
+  ComponentTypeSchemaResponse,
+  ComponentTypesGetRequest,
+  ComponentTypeSchemaGetRequest,
+  WorkflowSchemaGetRequest,
+  WorkflowSchemaResponse,
+  AddonListResponse,
+  AddonSchemaResponse,
+  AddonsGetRequest,
+  AddonSchemaGetRequest,
+  ApplyResourceRequest,
+  ApplyResourceResponse,
 } from '../models';
 
 /**
@@ -545,6 +557,148 @@ export class DefaultApiClient {
       },
       method: 'PATCH',
       body: JSON.stringify(request.updateBindingRequest),
+    });
+  }
+
+  /**
+   * List all Component Type Definitions for an organization
+   * List component types
+   */
+  public async componentTypesGet(
+    request: ComponentTypesGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<ComponentTypeListResponse>> {
+    const uriTemplate = `/orgs/{orgName}/component-types{?page,pageSize}`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      page: request.page,
+      pageSize: request.pageSize,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Get the JSONSchema for a specific Component Type Definition
+   * Get component type schema
+   */
+  public async componentTypeSchemaGet(
+    request: ComponentTypeSchemaGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<ComponentTypeSchemaResponse>> {
+    const uriTemplate = `/orgs/{orgName}/component-types/{ctdName}/schema`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      ctdName: request.ctdName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * List all Addons for an organization
+   * List addons
+   */
+  public async addonsGet(
+    request: AddonsGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<AddonListResponse>> {
+    const uriTemplate = `/orgs/{orgName}/traits{?page,pageSize}`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      page: request.page,
+      pageSize: request.pageSize,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Get the JSONSchema for a specific Addon
+   * Get addon schema
+   */
+  public async addonSchemaGet(
+    request: AddonSchemaGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<AddonSchemaResponse>> {
+    const uriTemplate = `/orgs/{orgName}/traits/{addonName}/schema`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      addonName: request.addonName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Get the JSONSchema for a specific Workflow
+   * Get workflow schema
+   */
+  public async workflowSchemaGet(
+    request: WorkflowSchemaGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<WorkflowSchemaResponse>> {
+    const uriTemplate = `/orgs/{orgName}/workflows/{workflowName}/schema`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      workflowName: request.workflowName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Apply a component resource (similar to kubectl apply)
+   * Creates or updates a component based on the provided resource definition
+   */
+  public async applyResource(
+    request: ApplyResourceRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<ApplyResourceResponse>> {
+    const uri = `/apply`;
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
+      body: JSON.stringify(request.resource),
     });
   }
 }

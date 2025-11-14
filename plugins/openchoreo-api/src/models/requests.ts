@@ -229,6 +229,24 @@ export type DataplanesGetRequest = {
 };
 
 /**
+ * Request parameters for getting workflow schema
+ * @public
+ */
+export type WorkflowSchemaGetRequest = {
+  orgName: string;
+  workflowName: string;
+};
+
+/**
+ * Request parameters for applying a component resource
+ * @public
+ */
+export type ApplyResourceRequest = {
+  orgName: string;
+  resource: any; // ComponentResource - dynamic JSON structure
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

@@ -22,6 +22,7 @@ import {
   CHOREO_LABELS,
 } from '@openchoreo/backstage-plugin-common';
 import { EnvironmentEntityV1alpha1, DataplaneEntityV1alpha1 } from '../kinds';
+import { CtdToTemplateConverter } from '../converters/CtdToTemplateConverter';
 
 /**
  * Provides entities from OpenChoreo API
@@ -32,6 +33,7 @@ export class OpenChoreoEntityProvider implements EntityProvider {
   private readonly logger: LoggerService;
   private readonly client: OpenChoreoApiClient;
   private readonly defaultOwner: string;
+  private readonly ctdConverter: CtdToTemplateConverter;
 
   constructor(
     taskRunner: SchedulerServiceTaskRunner,
@@ -44,6 +46,11 @@ export class OpenChoreoEntityProvider implements EntityProvider {
     // Default owner for all entities - configurable via app-config.yaml
     this.defaultOwner =
       config.getOptionalString('openchoreo.defaultOwner') || 'developers';
+    // Initialize CTD to Template converter
+    this.ctdConverter = new CtdToTemplateConverter({
+      defaultOwner: this.defaultOwner,
+      namespace: 'openchoreo',
+    });
   }
 
   getProviderName(): string {
@@ -205,6 +212,71 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         } catch (error) {
           this.logger.warn(
             `Failed to fetch projects for organization ${org.name}: ${error}`,
+          );
+        }
+      }
+
+      // Fetch Component Type Definitions and generate Template entities
+      // Use the new two-step API: list + schema for each CTD
+      for (const org of organizations) {
+        try {
+          this.logger.info(
+            `Fetching Component Type Definitions from OpenChoreo API for org: ${org.name}`,
+          );
+
+          // Step 1: List CTDs (complete metadata including allowedWorkflows)
+          const listResponse = await this.client.listCTDs(org.name);
+          this.logger.debug(
+            `Found ${listResponse.data.items.length} CTDs in organization: ${org.name} (total: ${listResponse.data.totalCount})`,
+          );
+
+          // Step 2: Fetch schemas in parallel for better performance
+          const ctdsWithSchemas = await Promise.all(
+            listResponse.data.items.map(async listItem => {
+              try {
+                return await this.client.getCTDWithSchema(org.name, listItem);
+              } catch (error) {
+                this.logger.warn(
+                  `Failed to fetch schema for CTD ${listItem.name} in org ${org.name}: ${error}`,
+                );
+                return null;
+              }
+            }),
+          );
+
+          // Filter out failed schema fetches
+          const validCTDs = ctdsWithSchemas.filter(
+            (ctd): ctd is NonNullable<typeof ctd> => ctd !== null,
+          );
+
+          // Step 3: Convert CTDs to template entities
+          const templateEntities: Entity[] = validCTDs.map(ctd => {
+            try {
+              const templateEntity = this.ctdConverter.convertCtdToTemplateEntity(ctd, org.name);
+              // Add the required Backstage catalog annotations
+              if (!templateEntity.metadata.annotations) {
+                templateEntity.metadata.annotations = {};
+              }
+              templateEntity.metadata.annotations['backstage.io/managed-by-location'] =
+                `provider:${this.getProviderName()}`;
+              templateEntity.metadata.annotations['backstage.io/managed-by-origin-location'] =
+                `provider:${this.getProviderName()}`;
+              return templateEntity;
+            } catch (error) {
+              this.logger.warn(
+                `Failed to convert CTD ${ctd.metadata.name} to template: ${error}`,
+              );
+              return null;
+            }
+          }).filter((entity): entity is Entity => entity !== null);
+
+          allEntities.push(...templateEntities);
+          this.logger.info(
+            `Successfully generated ${templateEntities.length} template entities from CTDs in org: ${org.name}`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Failed to fetch Component Type Definitions for org ${org.name}: ${error}`,
           );
         }
       }
@@ -430,7 +502,7 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         title: component.name,
         description: component.description || component.name,
         // namespace: orgName,
-        tags: ['openchoreo', 'component', component.type.toLowerCase()],
+        tags: ['openchoreo', 'component', component.type.toLowerCase().replace('/', '-')],
         annotations: {
           'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
           'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,

@@ -14,6 +14,17 @@ import {
   DeploymentPipelineResponse,
   ModelsCompleteComponent,
   ModelsWorkload,
+  ComponentType,
+  ComponentTypeListItem,
+  ComponentTypeListResponse,
+  ComponentTypeSchemaResponse,
+  BuildTemplateListResponse,
+  BuildTemplateSchemaResponse,
+  AddonListResponse,
+  AddonSchemaResponse,
+  WorkflowSchemaResponse,
+  ComponentResource,
+  ApplyResourceResponse,
 } from './models';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
@@ -700,6 +711,388 @@ export class OpenChoreoApiClient {
     } catch (error) {
       this.logger?.error(
         `Failed to update binding ${bindingName} for component ${componentName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * List all Component Types
+   *
+   * Returns a list of all component types with minimal metadata (name, workloadType, createdAt).
+   * To get the full schema for a component type, use getComponentTypeSchema() or getComponentTypeWithSchema().
+   *
+   * @param orgName - Organization name
+   * @param page - Page number (optional, for pagination)
+   * @param pageSize - Number of items per page (optional, for pagination)
+   * @returns Promise resolving to ComponentTypeListResponse
+   *
+   * API Endpoint: GET /orgs/{orgName}/component-types
+   */
+  async listCTDs(
+    orgName: string,
+    page: number = 1,
+    pageSize: number = 100,
+  ): Promise<ComponentTypeListResponse> {
+    this.logger?.info(
+      `Fetching component type list for organization: ${orgName} (page: ${page}, pageSize: ${pageSize})`,
+    );
+
+    try {
+      const response = await this.client.componentTypesGet(
+        { orgName, page, pageSize },
+        { token: this.token },
+      );
+
+      const componentTypeListResponse: ComponentTypeListResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(componentTypeListResponse)}`);
+
+      if (!componentTypeListResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      this.logger?.info(
+        `Successfully fetched ${componentTypeListResponse.data.items.length} component types for org: ${orgName} (total: ${componentTypeListResponse.data.totalCount})`,
+      );
+      return componentTypeListResponse;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch component type list for org ${orgName}: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the JSONSchema for a specific Component Type
+   *
+   * Returns the input parameter schema for the specified component type.
+   *
+   * @param orgName - Organization name
+   * @param ctdName - Component type name
+   * @returns Promise resolving to ComponentTypeSchemaResponse
+   *
+   * API Endpoint: GET /orgs/{orgName}/component-types/{ctdName}/schema
+   */
+  async getCTDSchema(
+    orgName: string,
+    ctdName: string,
+  ): Promise<ComponentTypeSchemaResponse> {
+    this.logger?.debug(
+      `Fetching schema for component type: ${ctdName} in org: ${orgName}`,
+    );
+
+    try {
+      const response = await this.client.componentTypeSchemaGet(
+        { orgName, ctdName },
+        { token: this.token },
+      );
+
+      const schemaResponse: ComponentTypeSchemaResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(schemaResponse)}`);
+
+      if (!schemaResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      this.logger?.debug(
+        `Successfully fetched schema for component type: ${ctdName}`,
+      );
+      return schemaResponse;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch schema for component type ${ctdName} in org ${orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get a full Component Type object (metadata + schema)
+   *
+   * Uses the 2-call pattern to fetch complete component type details:
+   * 1. List component types (returns ComponentTypeListItem[] with all metadata including allowedWorkflows)
+   * 2. Get component type schema (input parameters)
+   *
+   * @param orgName - Organization name
+   * @param componentTypeItem - Component type list item from list endpoint (contains all metadata)
+   * @returns Promise resolving to complete ComponentType object
+   */
+  async getCTDWithSchema(
+    orgName: string,
+    componentTypeItem: ComponentTypeListItem,
+  ): Promise<ComponentType> {
+    this.logger?.debug(
+      `Fetching schema for component type: ${componentTypeItem.name} in org: ${orgName}`,
+    );
+
+    try {
+      // Fetch schema for the component type
+      const schemaResponse = await this.getCTDSchema(orgName, componentTypeItem.name);
+
+      // Combine metadata from list item + schema into full ComponentType object
+      const fullComponentType: ComponentType = {
+        metadata: componentTypeItem, // All metadata is already in the list item
+        spec: {
+          inputParametersSchema: schemaResponse.data,
+        },
+      };
+
+      this.logger?.debug(
+        `Successfully fetched complete component type: ${componentTypeItem.name}`,
+      );
+      return fullComponentType;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch complete component type ${componentTypeItem.name} in org ${orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * List all build templates for a specific CTD
+   *
+   * Returns a list of build templates available for the specified CTD.
+   *
+   * @param orgName - Organization name
+   * @param ctdName - CTD name
+   * @returns Promise resolving to BuildTemplateListResponse
+   *
+   * API Endpoint: GET /api/v1/orgs/{orgName}/component-type-definitions/{ctdName}/build-templates
+   */
+  async listBuildTemplates(
+    orgName: string,
+    ctdName: string,
+  ): Promise<BuildTemplateListResponse> {
+    this.logger?.debug(
+      `Fetching build templates for CTD: ${ctdName} in org: ${orgName}`,
+    );
+
+    try {
+      // TODO: Replace with actual API call when endpoint is available
+      // For now, return a static list of common build templates regardless of CTD
+      // since the build template API is not ready yet
+      const staticTemplates: BuildTemplateListResponse = {
+        success: true,
+        data: {
+          items: [
+            { name: 'dockerfile' },
+            { name: 'nodejs' },
+            { name: 'python' },
+            { name: 'java-maven' },
+            { name: 'java-gradle' },
+            { name: 'go' },
+          ],
+        },
+      };
+
+      this.logger?.debug(
+        `Returning ${staticTemplates.data.items.length} static build templates for CTD: ${ctdName}`,
+      );
+      return staticTemplates;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch build templates for CTD ${ctdName} in org ${orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * List all Addons for an organization
+   *
+   * Returns a paginated list of addons available for the organization.
+   *
+   * @param orgName - Organization name
+   * @param page - Page number (default: 1)
+   * @param pageSize - Number of items per page (default: 100)
+   * @returns Promise resolving to AddonListResponse
+   *
+   * API Endpoint: GET /orgs/{orgName}/addons
+   */
+  async listAddons(
+    orgName: string,
+    page: number = 1,
+    pageSize: number = 100,
+  ): Promise<AddonListResponse> {
+    this.logger?.info(
+      `Fetching addon list for organization: ${orgName} (page: ${page}, pageSize: ${pageSize})`,
+    );
+
+    try {
+      const response = await this.client.addonsGet(
+        { orgName, page, pageSize },
+        { token: this.token },
+      );
+
+      const addonListResponse: AddonListResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(addonListResponse)}`);
+
+      if (!addonListResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      this.logger?.info(
+        `Successfully fetched ${addonListResponse.data.items.length} addons for org: ${orgName} (total: ${addonListResponse.data.totalCount})`,
+      );
+      return addonListResponse;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch addon list for org ${orgName}: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the JSONSchema for a specific Addon
+   *
+   * Returns the configuration parameter schema for the specified addon.
+   *
+   * @param orgName - Organization name
+   * @param addonName - Addon name
+   * @returns Promise resolving to AddonSchemaResponse
+   *
+   * API Endpoint: GET /orgs/{orgName}/addons/{addonName}/schema
+   */
+  async getAddonSchema(
+    orgName: string,
+    addonName: string,
+  ): Promise<AddonSchemaResponse> {
+    this.logger?.debug(
+      `Fetching schema for addon: ${addonName} in org: ${orgName}`,
+    );
+
+    try {
+      const response = await this.client.addonSchemaGet(
+        { orgName, addonName },
+        { token: this.token },
+      );
+
+      const schemaResponse: AddonSchemaResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(schemaResponse)}`);
+
+      if (!schemaResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      this.logger?.debug(
+        `Successfully fetched schema for addon: ${addonName}`,
+      );
+      return schemaResponse;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch schema for addon ${addonName} in org ${orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get the JSONSchema for a specific Workflow
+   *
+   * Returns the parameter schema for the specified workflow.
+   *
+   * @param orgName - Organization name
+   * @param workflowName - Workflow name
+   * @returns Promise resolving to WorkflowSchemaResponse
+   *
+   * API Endpoint: GET /orgs/{orgName}/workflows/{workflowName}/schema
+   */
+  async workflowSchemaGet(
+    request: { orgName: string; workflowName: string },
+    options?: { token?: string },
+  ): Promise<WorkflowSchemaResponse> {
+    this.logger?.debug(
+      `Fetching schema for workflow: ${request.workflowName} in org: ${request.orgName}`,
+    );
+
+    try {
+      const response = await this.client.workflowSchemaGet(
+        request,
+        { token: options?.token || this.token },
+      );
+
+      const schemaResponse: WorkflowSchemaResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(schemaResponse)}`);
+
+      if (!schemaResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      this.logger?.debug(
+        `Successfully fetched schema for workflow: ${request.workflowName}`,
+      );
+      return schemaResponse;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch schema for workflow ${request.workflowName} in org ${request.orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Apply a component resource (similar to kubectl apply)
+   *
+   * Creates or updates a component based on the provided resource definition.
+   * The resource should conform to the ComponentResource interface.
+   * The organization is extracted from the resource metadata namespace.
+   *
+   * @param resource - Component resource definition (ComponentResource)
+   * @returns Promise resolving to ApplyResourceResponse
+   *
+   * API Endpoint: POST /api/v1/apply
+   */
+  async applyResource(
+    resource: ComponentResource,
+  ): Promise<ApplyResourceResponse> {
+    this.logger?.info(
+      `Applying component resource: ${resource.metadata.name} in organization: ${resource.metadata.namespace}`,
+    );
+
+    try {
+      const response = await this.client.applyResource(
+        { resource },
+        { token: this.token },
+      );
+
+      this.logger?.info(`API response status: ${response.status} ${response.statusText}`);
+      this.logger?.info(`API response URL: ${response.url}`);
+
+      // Log response headers
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+      this.logger?.debug(`API response headers: ${JSON.stringify(headers)}`);
+
+      // Get the raw response text first
+      const responseText = await response.text();
+      this.logger?.debug(`API raw response body: ${responseText}`);
+
+      // Try to parse as JSON
+      let applyResponse: ApplyResourceResponse;
+      try {
+        applyResponse = JSON.parse(responseText);
+      } catch (parseError) {
+        this.logger?.error(`Failed to parse JSON response: ${parseError}`);
+        this.logger?.error(`Raw response was: ${responseText}`);
+        throw new Error(`Invalid JSON response from API: ${parseError}`);
+      }
+
+      this.logger?.info(`API parsed response: ${JSON.stringify(applyResponse)}`);
+
+      if (!applyResponse.success) {
+        throw new Error(
+          `API request was not successful: ${applyResponse.message || 'Unknown error'}`,
+        );
+      }
+
+      this.logger?.info(
+        `Successfully applied component resource: ${resource.metadata.name}`,
+      );
+      return applyResponse;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to apply component resource ${resource.metadata.name} in org ${resource.metadata.namespace}: ${error}`,
       );
       throw error;
     }

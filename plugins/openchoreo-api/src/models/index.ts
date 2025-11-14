@@ -6,6 +6,8 @@
 export * from './ModelsProject.model';
 export * from './ModelsOrganization.model';
 export * from './ModelsComponent.model';
+export * from './ModelsComponentType.model';
+export * from './ModelsComponentResource.model';
 export * from './ModelsEnvironment.model';
 export * from './ModelsDataPlane.model';
 export * from './ModelsBuildTemplate.model';
@@ -13,6 +15,8 @@ export * from './ModelsBuild.model';
 export * from './ModelsWorkload.model';
 export * from './ModelsBinding.model';
 export * from './ModelsDeploymentPipeline.model';
+export * from './ModelsAddon.model';
+export * from './ModelsWorkflowSchema.model';
 export * from './requests';
 export * from './responses';
 export * from './observability';

@@ -12,6 +12,8 @@ import { ComponentInfoService } from './services/ComponentService/ComponentInfoS
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 import { WorkloadInfoService } from './services/WorkloadService/WorkloadInfoService';
 import { DashboardInfoService } from './services/DashboardService/DashboardInfoService';
+import { AddonInfoService } from './services/AddonService/AddonInfoService';
+import { WorkflowSchemaService } from './services/WorkflowService/WorkflowSchemaService';
 import {
   DefaultApiClient,
   ObservabilityApiClient,
@@ -89,6 +91,16 @@ export const choreoPlugin = createBackendPlugin({
           openchoreoConfig.get('baseUrl'),
         );
 
+        const addonInfoService = new AddonInfoService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
+
+        const workflowSchemaService = new WorkflowSchemaService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
+
         httpRouter.use(
           await createRouter({
             environmentInfoService,
@@ -99,6 +111,8 @@ export const choreoPlugin = createBackendPlugin({
             runtimeLogsInfoService,
             workloadInfoService,
             dashboardInfoService,
+            addonInfoService,
+            workflowSchemaService,
           }),
         );
       },
