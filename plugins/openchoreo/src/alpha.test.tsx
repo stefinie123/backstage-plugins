@@ -117,6 +117,8 @@ const ALPHA_EXTENSION_NAMES = [
   ['entity-content-layout', 'trait-type-overview'],
   ['entity-content-layout', 'workflow-overview-layout'],
   ['entity-content-layout', 'component-workflow-overview-layout'],
+  // Group/User — hardened warning strip instead of the leaky default layout
+  ['entity-content-layout', 'core-entity-overview-layout'],
 ] as const;
 
 describe('openchoreo alpha plugin', () => {

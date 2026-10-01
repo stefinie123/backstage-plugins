@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import {
   CatalogApi,
@@ -8,8 +7,6 @@ import {
 import Alert from '@material-ui/lab/Alert';
 import useAsync from 'react-use/esm/useAsync';
 import Box from '@material-ui/core/Box';
-import Button from '@material-ui/core/Button';
-import Collapse from '@material-ui/core/Collapse';
 import Grid from '@material-ui/core/Grid';
 import { ResponseErrorPanel } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
@@ -61,18 +58,17 @@ async function getRelationWarnings(entity: Entity, catalogApi: CatalogApi) {
 }
 
 /**
- * Displays a collapsible warning alert if the entity has relations to other
- * entities that could not be found in the catalog. Platform-level entity
- * kinds are filtered out since users typically can't see them due to permissions.
+ * Warns when an entity has relations that can't be resolved in the catalog.
+ * Only the count is shown, never the refs: an unresolved relation may just be
+ * one the viewer lacks permission to see, so naming it would leak restricted
+ * resources. Platform kinds are dropped as noise users can't act on.
  *
- * Wraps its own `<Grid item xs={12}>` so callers can drop it into an OC
- * layout's Grid container without leaving an empty gap when the warning
- * has nothing to show (all unresolved refs are platform-owned).
+ * Wraps its own `<Grid item xs={12}>` so it can return null (all unresolved
+ * refs platform-owned) without leaving a gap in the caller's Grid.
  */
 export function EntityRelationWarning() {
   const { entity } = useEntity();
   const catalogApi = useApi(catalogApiRef);
-  const [expanded, setExpanded] = useState(false);
   const { loading, error, value } = useAsync(async () => {
     return getRelationWarnings(entity, catalogApi);
   }, [entity, catalogApi]);
@@ -91,24 +87,22 @@ export function EntityRelationWarning() {
     return null;
   }
 
-  const userFacingRefs = value.filter(ref => {
+  const userFacingCount = value.filter(ref => {
     const kind = ref.split(':')[0].toLowerCase();
     return !PLATFORM_KINDS.has(kind);
-  });
+  }).length;
 
-  if (userFacingRefs.length === 0) {
+  if (userFacingCount === 0) {
     return null;
   }
+
+  const noun = userFacingCount === 1 ? 'related entity' : 'related entities';
 
   return (
     <Grid item xs={12}>
       <Alert severity="warning">
-        Some related entities could not be found in the catalog. This may be
-        because they don't exist or you may not have permission to view them.{' '}
-        <Button size="small" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Hide' : 'Show'} details
-        </Button>
-        <Collapse in={expanded}>{userFacingRefs.join(', ')}</Collapse>
+        {userFacingCount} {noun} could not be found in the catalog. This may be
+        because they don't exist or you may not have permission to view them.
       </Alert>
     </Grid>
   );

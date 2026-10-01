@@ -861,6 +861,20 @@ const componentWorkflowOverviewLayout = EntityContentLayoutBlueprint.make({
   },
 });
 
+// Group/User otherwise use the upstream default layout, whose relation warning
+// leaks the names of unresolved related entities. This swaps in OC's hardened
+// warning strip (count only).
+const coreEntityOverviewLayout = EntityContentLayoutBlueprint.make({
+  name: 'core-entity-overview-layout',
+  params: {
+    filter: { kind: { $in: ['group', 'user'] } },
+    loader: () =>
+      import('./extensions/entityLayouts/CoreEntityOverviewLayout').then(
+        m => m.default,
+      ),
+  },
+});
+
 import { scaffolderFieldExtensions } from './scaffolder/extensions';
 import { FormDecoratorBlueprint } from '@backstage/plugin-scaffolder-react/alpha';
 import { openChoreoTokenDecorator } from './scaffolder/openChoreoTokenDecorator';
@@ -959,5 +973,6 @@ export default createFrontendPlugin({
     traitTypeOverviewLayout,
     workflowOverviewLayout,
     componentWorkflowOverviewLayout,
+    coreEntityOverviewLayout,
   ],
 });
